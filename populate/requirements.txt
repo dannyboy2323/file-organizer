@@ -1,6 +1,7 @@
 boto3
-psycopg2-binary
+psycopg2
+google-api-python-client
 google-auth
 google-auth-oauthlib
 google-auth-httplib2
-google-api-python-client
+botocore
