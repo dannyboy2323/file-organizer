@@ -1,0 +1,7 @@
+boto3
+psycopg2-binary
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+google-api-python-client
+requests
