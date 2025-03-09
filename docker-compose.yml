@@ -1,0 +1,19 @@
+
+services:
+  process:
+    build: ./process
+    container_name: process_service
+    volumes:
+      - ./process:/app
+    environment:
+      - AWS_REGION=us-east-2
+    restart: always
+
+  populate:
+    build: ./populate
+    container_name: populate_service
+    volumes:
+      - ./populate:/app
+    environment:
+      - AWS_REGION=us-east-2
+    restart: always

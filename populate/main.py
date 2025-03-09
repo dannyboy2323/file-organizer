@@ -1,51 +1,49 @@
-import os
 import json
-import time
-import boto3
 import psycopg2
-import uuid
-from collections import defaultdict
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from google.oauth2 import service_account
-from botocore.exceptions import BotoCoreError
+import boto3
 
-AWS_REGION = "us-east-2"
-
-def get_secret(secret_id):
-    """Retrieve a secret from AWS Secrets Manager."""
-    session = boto3.session.Session()
-    client = session.client(service_name="secretsmanager", region_name=AWS_REGION)
-    response = client.get_secret_value(SecretId=secret_id)
-    return json.loads(response["SecretString"])
+# AWS Secrets Manager Configuration
+SECRET_NAME = "rds!cluster-19acf51e-0cab-4b08-b87a-6232c60bed1c"
+REGION_NAME = "us-east-2"
+RDS_WRITER_ENDPOINT = "files-1.cluster-c34g8w4k21dz.us-east-2.rds.amazonaws.com"
+RDS_PORT = 5432
 
 def get_db_credentials():
-    """Retrieves RDS credentials from AWS Secrets Manager."""
-    return get_secret("file_organizer_rds_secret")
-
-def authenticate_google_drive():
-    """Authenticates with Google Drive API using service account credentials from AWS Secrets Manager."""
-    creds_data = get_secret("gdrive-service-key")
-    creds = service_account.Credentials.from_service_account_info(
-        creds_data, scopes=["https://www.googleapis.com/auth/drive"]
-    )
-    return build("drive", "v3", credentials=creds)
+    """Fetches RDS credentials from AWS Secrets Manager."""
+    try:
+        client = boto3.client(service_name="secretsmanager", region_name=REGION_NAME)
+        response = client.get_secret_value(SecretId=SECRET_NAME)
+        secret = json.loads(response["SecretString"])
+        return {
+            "user": secret["username"],
+            "password": secret["password"],
+            "database": secret.get("dbname", "postgres"),
+        }
+    except Exception as e:
+        print(f"❌ ERROR: Unable to retrieve RDS credentials - {e}")
+        exit(1)
 
 def connect_db():
-    """Connects to PostgreSQL RDS."""
-    creds = get_db_credentials()
-    return psycopg2.connect(
-        dbname=creds.get("dbname", "postgres"),
-        user=creds["username"],
-        password=creds["password"],
-        host=creds["host"],
-        port=5432
-    )
+    """Establishes a connection to PostgreSQL RDS."""
+    try:
+        creds = get_db_credentials()
+        conn = psycopg2.connect(
+            dbname=creds["database"],
+            user=creds["user"],
+            password=creds["password"],
+            host=RDS_WRITER_ENDPOINT,
+            port=RDS_PORT
+        )
+        return conn
+    except psycopg2.Error as e:
+        print(f"❌ ERROR: Unable to connect to RDS - {e}")
+        exit(1)
 
 def initialize_db():
-    """Ensures the 'media' table exists."""
+    """Ensures the media table is created with the correct schema."""
     conn = connect_db()
     cursor = conn.cursor()
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS media (
             id SERIAL PRIMARY KEY,
@@ -56,43 +54,27 @@ def initialize_db():
             type TEXT,
             extension TEXT,
             downloaded BOOLEAN DEFAULT FALSE,
+            processed BOOLEAN DEFAULT FALSE,
+            file_size INTEGER,
+            length REAL,
+            date_created TEXT,
+            date_edited TEXT,
+            people TEXT,
+            segments TEXT,
+            tags TEXT,
+            summary TEXT,
+            trailer TEXT,
+            s3_path TEXT,
+            new_name TEXT,
             added TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+        );
     """)
+
     conn.commit()
+    cursor.close()
     conn.close()
+    print("✅ Database initialized successfully.")
 
-def process_files(service):
-    """Processes files, detects duplicates, and moves them appropriately."""
-    gdrive_folder_id = get_secret("file_organizer_gdrive_folder_id")
-
-    while True:
-        print("Fetching file list from Google Drive...")
-        files = service.files().list(
-            q=f"'{gdrive_folder_id}' in parents and trashed=false",
-            fields="files(id, name, mimeType, size)"
-        ).execute().get("files", [])
-
-        if not files:
-            print("✅ All files in `_watched/` have been processed. Exiting loop.")
-            break
-
-        conn = connect_db()
-        cursor = conn.cursor()
-
-        for file in files:
-            cursor.execute("""
-                INSERT INTO media (original_path, original_name, gdrive_id, uuid, type, extension, downloaded)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (gdrive_id) DO NOTHING
-            """, (file["name"], file["name"], file["id"], str(uuid.uuid4()), "image", os.path.splitext(file["name"])[-1][1:], False))
-            conn.commit()
-
-        conn.close()
-        print(f"✅ {len(files)} files processed. Checking again in 5 seconds.")
-        time.sleep(5)
-
-initialize_db()
-service = authenticate_google_drive()
-process_files(service)
+if __name__ == "__main__":
+    initialize_db()
