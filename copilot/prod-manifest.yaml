@@ -1,0 +1,3 @@
+variables:
+  MEDIA_FOLDER_ID: /Media
+  ENVIRONMENT: prod

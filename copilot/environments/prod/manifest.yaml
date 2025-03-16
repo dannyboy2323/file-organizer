@@ -1,0 +1,25 @@
+name: prod
+type: Environment
+
+network:
+  vpc:
+    id: vpc-12345678
+    security_group:
+      ingress:
+        - port: 80
+          cidr: 0.0.0.0/0
+
+database:
+  cluster_identifier: prod-cluster
+  engine: aurora-postgresql
+  instance_type: db.r5.large
+  storage: 100
+  backup_retention: 35
+  deletion_protection: true
+
+observability:
+  container_insights: true
+
+tags:
+  environment: prod
+  cost-center: "12345"

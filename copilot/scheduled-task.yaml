@@ -1,0 +1,26 @@
+# copilot/scheduled-task.yml
+name: media-sync
+type: Scheduled Job
+platform: Linux/x86_64
+storage:
+  volumes:
+    media-storage:
+      path: /media
+      read_only: false
+      efs:
+        uid: 1000
+        gid: 1000
+
+variables:
+  MEDIA_FOLDER_ID: /Media-test
+  ENVIRONMENT: test
+
+secrets:
+  GDRIVE_CREDS: /aws/reference/secretsmanager/file_organizer_gdrive_credentials
+  RDS_CREDS: /aws/reference/secretsmanager/rds!cluster-19acf51e-0cab-4b08-b87a-6232c60bed1c
+  S3_BUCKET: /aws/reference/secretsmanager/file_organizer_s3_bucket
+
+cpu: 2048
+memory: 4096
+retries: 3
+timeout: 1h

@@ -1,0 +1,35 @@
+name: file-organizer-pipeline
+version: 1
+
+source:
+  provider: GitHub
+  properties:
+    repository: "dannyboy2323/file-organizer"
+    branch: main
+
+build:
+  image: dockerfile/Dockerfile
+  post_build:
+    commands:
+      - echo "Build completed on `date`"
+
+stages:
+  - name: test
+    requires_approval: false
+    deployments:
+      - name: api-test
+        environment: test
+        order: 1
+      - name: worker-test
+        environment: test
+        order: 2
+
+  - name: prod
+    requires_approval: true
+    deployments:
+      - name: api-prod
+        environment: prod
+        order: 1
+      - name: worker-prod
+        environment: prod
+        order: 2

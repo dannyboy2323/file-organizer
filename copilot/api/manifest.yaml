@@ -1,0 +1,36 @@
+name: api
+type: Backend Service
+
+image:
+  build: Dockerfile
+  port: 8080
+
+cpu: 1024
+memory: 2048
+
+variables:
+  LOG_LEVEL: info
+  MEDIA_FOLDER: Media-$COPILOT_ENVIRONMENT_NAME
+
+secrets:
+  DB_SECRET: $COPILOT_APP_NAME-$COPILOT_ENVIRONMENT_NAME-db-secret
+  GDRIVE_CREDS: $COPILOT_APP_NAME-gdrive-creds
+
+storage:
+  - read_only: true
+    path: /data
+    efs:
+      id: fs-12345678
+      root_dir: /
+      auth:
+        access_point_id: fsap-12345678
+        iam: true
+
+environments:
+  test:
+    variables:
+      LOG_LEVEL: debug
+  prod:
+    count: 3
+    cpu: 2048
+    memory: 4096

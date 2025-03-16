@@ -1,0 +1,16 @@
+schema_version: "2021-09-01"
+production:
+  rules:
+    - rule: prevent-unapproved-resources
+      resource_types:
+        - AWS::RDS::DBInstance
+        - AWS::S3::Bucket
+      message: "Production-critical resources require approval"
+      level: error
+
+    - rule: require-tags
+      required_tags:
+        - key: environment
+          value: prod
+      message: "All production resources must have environment=prod tag"
+      level: error
